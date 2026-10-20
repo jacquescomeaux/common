@@ -36,7 +36,7 @@ from __Setoids__ to __CMon__ via `Free`
 and back to __Setoids__ via `U`,
 we get a monad on __Setoids__,
 the _multiset_ monad, `MSet = U ∘ Free`.
-This unit of this monad
+The unit of this monad
 is the singleton function,
 ending an element `x` of the type `A`
 to the multiset of type `MSet A` with a single element, `x`.
