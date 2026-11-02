@@ -38,7 +38,7 @@ we get a monad on __Setoids__,
 the _multiset_ monad, `MSet = U ∘ Free`.
 The unit of this monad
 is the singleton function,
-ending an element `x` of the type `A`
+sending an element `x` of the type `A`
 to the multiset of type `MSet A` with a single element, `x`.
 The join operation is concatenation of multisets:
 it collapses a multiset of multisets (something of type `MSet (MSet A)`)
@@ -58,8 +58,9 @@ The counit homomorphism
 evaluates a formal sum in `⅀ M`
 back into an element of `M`.
 The comultiplication homomorphism,
-from `⅀ M` to `⅀ (⅀ M)` converts each term
-of a formal sum to a formal sum with a single term.
+from `⅀ M` to `⅀ (⅀ M)`,
+converts each term of a formal sum
+to a formal sum with a single term.
 
 ## Quotient
 
