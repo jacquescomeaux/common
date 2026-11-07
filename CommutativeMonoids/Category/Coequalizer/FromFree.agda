@@ -19,8 +19,7 @@ module CommutativeMonoids.Category.Coequalizer.FromFree
     (f g : A ⟶ₛ U B)
   where
 
-import CommutativeMonoids.Construction.CongruenceClosure {c} {ℓ} as CongruenceClosure
-import CommutativeMonoids.Construction.Quotient as Quotient
+import CommutativeMonoids.Construction.Presented {c} {ℓ} as Presented
 import Relation.Binary.Reasoning.Setoid as ≈-Reasoning
 
 open import CommutativeMonoids.Category
@@ -55,8 +54,9 @@ data _~_ : Rel Carrier (c ⊔ ℓ) where
 
 infix 4 _~_
 
-open CongruenceClosure B _~_ using (_≋_; _◅[_]_; ≋-congruence; step-fwd; equates-≋)
-open Quotient B ≋-congruence using (module Universal) renaming (M/≋ to C; π to h)
+open Presented B _~_
+  using (_≋_; step-fwd; module Universal)
+  renaming (M/≋ to C; π to h)
 
 private
   module C = CommutativeMonoid C
@@ -96,10 +96,7 @@ module _
   k-equates-~ : x ~ y → k.⟦ x ⟧ X.≈ k.⟦ y ⟧
   k-equates-~ (f~g a) = eq′ a
 
-  k-equates-≋ : x ≋ y → k.⟦ x ⟧ X.≈ k.⟦ y ⟧
-  k-equates-≋ = equates-≋ k k-equates-~
-
-  open Universal k k-equates-≋
+  open Universal k k-equates-~
 
   u! : CommutativeMonoidHomomorphism C X
   u! = induced
