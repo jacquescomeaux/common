@@ -1,124 +1,54 @@
 {-# OPTIONS --without-K --safe #-}
 
+open import Algebra using (CommutativeMonoid)
 open import Level using (Level; _⊔_)
-open import Algebra using (CommutativeMonoid)
 
-module CommutativeMonoids.Construction.TensorProduct {c ℓ : Level} (M N : CommutativeMonoid c (c ⊔ ℓ)) where
+module CommutativeMonoids.Construction.TensorProduct {c ℓ : Level} where
 
-import Data.List.Relation.Binary.Equality.Setoid as ≋
-import Data.List.Relation.Binary.Permutation.Algorithmic as Permutation
+import CommutativeMonoids.Construction.Presented {c} {ℓ} as Presented
 
-open import Algebra using (CommutativeMonoid)
 open import Algebra.Construct.DirectProduct using () renaming (commutativeMonoid to _⊕_)
-open import Categories.Diagram.Coequalizer using (Coequalizer)
 open import CommutativeMonoids.Category using (CommutativeMonoids; CommutativeMonoidHomomorphism)
-open import CommutativeMonoids.Category.Coequalizer.FromFree {c} {ℓ} using (coequalizer)
 open import CommutativeMonoids.Construction.FormalSum c ℓ using (⅀)
-open import CommutativeMonoids.FreeForget.Adjunction c ℓ using (Free⊣Forget; foldMap; onGenerators)
+open import CommutativeMonoids.FreeForget.Adjunction c ℓ using (foldMap)
 open import CommutativeMonoids.FreeForget.Forget c (c ⊔ ℓ) using () renaming (Underlying to U)
 open import CommutativeMonoids.FreeForget.Free c (c ⊔ ℓ) using (Free) renaming (FreeCommutativeMonoid to F)
-open import Data.List using (List; [_])
-open import Data.List.Relation.Binary.Pointwise using (Pointwise)
+open import Data.List using ([_]; _++_; [])
 open import Data.Product using (_,_)
-open import Function using (_⟶ₛ_; Func; _⟨$⟩_)
-open import Relation.Binary using (Setoid; Rel; IsEquivalence)
+open import Function using (_⟶ₛ_; _⟨$⟩_)
+open import Relation.Binary using (Rel)
 
-open List
-open Func
-open Pointwise
+module Tensor (M N : CommutativeMonoid c (c ⊔ ℓ)) where
 
-private
+  private
+    module M = CommutativeMonoid M
+    module N = CommutativeMonoid N
 
-  module M = CommutativeMonoid M
-  module N = CommutativeMonoid N
+  -- Formal sums of M⊕N terms
+  ⅀M⊕N : CommutativeMonoid c (c ⊔ ℓ)
+  ⅀M⊕N = ⅀ (M ⊕ N)
 
-  variable
-    x x₁ x₂ u u₁ u₂ : M.Carrier
-    y y₁ y₂ v v₁ v₂ : N.Carrier
+  open CommutativeMonoid ⅀M⊕N using () renaming (Carrier to Expr) public
 
--- Setoid for indexing bilinearity equations
+  -- Bilinearity laws
+  data _~_ : Rel Expr c where
+    εˡ : (y : N.Carrier) → [ M.ε , y ] ~ []
+    εʳ : (x : M.Carrier) → [ x , N.ε ] ~ []
+    ∙ˡ : (x₁ x₂ : M.Carrier) (y : N.Carrier) → [ x₁ , y ] ++ [ x₂ , y ] ~ [ x₁ M.∙ x₂ , y ]
+    ∙ʳ : (x : M.Carrier) (y₁ y₂ : N.Carrier) → [ x , y₁ ] ++ [ x , y₂ ] ~ [ x , y₁ N.∙ y₂ ]
 
-data I : Set c where
-  εˡ : (y : N.Carrier) → I
-  εʳ : (x : M.Carrier) → I
-  ∙ˡ : (x₁ x₂ : M.Carrier) (y : N.Carrier) → I
-  ∙ʳ : (x : M.Carrier) (y₁ y₂ : N.Carrier) → I
+  infix 4 _~_
 
-data _≈ᵢ_ : Rel I (c ⊔ ℓ) where
-  ≈ᵢ-εˡ : y N.≈ v → εˡ y ≈ᵢ εˡ v
-  ≈ᵢ-εʳ : x M.≈ u → εʳ x ≈ᵢ εʳ u
-  ≈ᵢ-∙ˡ : x₁ M.≈ u₁ → x₂ M.≈ u₂ → y N.≈ v → ∙ˡ x₁ x₂ y ≈ᵢ ∙ˡ u₁ u₂ v
-  ≈ᵢ-∙ʳ : x M.≈ u → y₁ N.≈ v₁ → y₂ N.≈ v₂ → ∙ʳ x y₁ y₂ ≈ᵢ ∙ʳ u v₁ v₂
+  open Presented ⅀M⊕N _~_ using () renaming (M/≋ to M⊗N; π to eval) public
 
-≈ᵢ-refl : {x : I} → x ≈ᵢ x
-≈ᵢ-refl {εˡ y} = ≈ᵢ-εˡ N.refl
-≈ᵢ-refl {εʳ x} = ≈ᵢ-εʳ M.refl
-≈ᵢ-refl {∙ˡ x₁ x₂ y} = ≈ᵢ-∙ˡ M.refl M.refl N.refl
-≈ᵢ-refl {∙ʳ x y₁ y₂} = ≈ᵢ-∙ʳ M.refl N.refl N.refl
+module _ {M N X : CommutativeMonoid c (c ⊔ ℓ)} where
 
-≈ᵢ-sym : {x y : I} → x ≈ᵢ y → y ≈ᵢ x
-≈ᵢ-sym (≈ᵢ-εˡ y≈v) = ≈ᵢ-εˡ (N.sym y≈v)
-≈ᵢ-sym (≈ᵢ-εʳ x≈u) = ≈ᵢ-εʳ (M.sym x≈u)
-≈ᵢ-sym (≈ᵢ-∙ˡ x₁≈u₁ x₂≈u₂ y≈v) = ≈ᵢ-∙ˡ (M.sym x₁≈u₁) (M.sym x₂≈u₂) (N.sym y≈v)
-≈ᵢ-sym (≈ᵢ-∙ʳ x≈u y₁≈v₁ y₂≈v₂) = ≈ᵢ-∙ʳ (M.sym x≈u) (N.sym y₁≈v₁) (N.sym y₂≈v₂)
+  private
+    module M = CommutativeMonoid M
+    module N = CommutativeMonoid N
 
-≈ᵢ-trans : {i j k : I} → i ≈ᵢ j → j ≈ᵢ k → i ≈ᵢ k
-≈ᵢ-trans (≈ᵢ-εˡ ≈y) (≈ᵢ-εˡ ≈y′) = ≈ᵢ-εˡ (N.trans ≈y ≈y′)
-≈ᵢ-trans (≈ᵢ-εʳ ≈x) (≈ᵢ-εʳ ≈x′) = ≈ᵢ-εʳ (M.trans ≈x ≈x′)
-≈ᵢ-trans (≈ᵢ-∙ˡ ≈x₁ ≈x₂ ≈y) (≈ᵢ-∙ˡ ≈x₁′ ≈x₂′ ≈y′) = ≈ᵢ-∙ˡ (M.trans ≈x₁ ≈x₁′) (M.trans ≈x₂ ≈x₂′) (N.trans ≈y ≈y′)
-≈ᵢ-trans (≈ᵢ-∙ʳ ≈x ≈y₁ ≈y₂) (≈ᵢ-∙ʳ ≈x′ ≈y₁′ ≈y₂′) = ≈ᵢ-∙ʳ (M.trans ≈x ≈x′) (N.trans ≈y₁ ≈y₁′) (N.trans ≈y₂ ≈y₂′)
-
-≈ᵢ-isEquiv : IsEquivalence _≈ᵢ_
-≈ᵢ-isEquiv = record
-    { refl = ≈ᵢ-refl
-    ; sym = ≈ᵢ-sym
-    ; trans = ≈ᵢ-trans
-    }
-
-Iₛ : Setoid c (c ⊔ ℓ)
-Iₛ = record { isEquivalence = ≈ᵢ-isEquiv }
-
-open Permutation (U (M ⊕ N)) using (↭-reflexive)
-
--- Axioms for bilinearity, encoded as a pair of functions
-f g : Iₛ ⟶ₛ U (⅀ (M ⊕ N))
-f .to (εˡ y) = [ M.ε , y ]
-f .to (εʳ x) = [ x , N.ε ]
-f .to (∙ˡ x₁ x₂ y) = (x₁ , y) ∷ [ x₂ , y ]
-f .to (∙ʳ x y₁ y₂) = ((x , y₁) ∷ [ x , y₂ ])
-f .cong (≈ᵢ-εˡ ≈y) = ↭-reflexive ((M.refl , ≈y) ∷ [])
-f .cong (≈ᵢ-εʳ ≈x) = ↭-reflexive ((≈x , N.refl) ∷ [])
-f .cong (≈ᵢ-∙ˡ ≈x₁ ≈x₂ ≈y) = ↭-reflexive ((≈x₁ , ≈y) ∷ (≈x₂ , ≈y) ∷ [])
-f .cong (≈ᵢ-∙ʳ ≈x ≈y₁ ≈y₂) = ↭-reflexive ((≈x , ≈y₁) ∷ (≈x , ≈y₂) ∷ [])
-g .to (εˡ y) = []
-g .to (εʳ x) = []
-g .to (∙ˡ x₁ x₂ y) = [ x₁ M.∙ x₂ , y ]
-g .to (∙ʳ x y₁ y₂) = [ x , y₁ N.∙ y₂ ]
-g .cong (≈ᵢ-εˡ ≈y) = ↭-reflexive []
-g .cong (≈ᵢ-εʳ ≈x) = ↭-reflexive []
-g .cong (≈ᵢ-∙ˡ ≈x₁ ≈x₂ ≈y) = ↭-reflexive ((M.∙-cong ≈x₁ ≈x₂ , ≈y) ∷ [])
-g .cong (≈ᵢ-∙ʳ ≈x ≈y₁ ≈y₂) = ↭-reflexive ((≈x , N.∙-cong ≈y₁ ≈y₂) ∷ [])
-
-fₘ gₘ : CommutativeMonoidHomomorphism (F Iₛ) (⅀ (M ⊕ N))
-fₘ = foldMap {Iₛ} {⅀ (M ⊕ N)} f
-gₘ = foldMap {Iₛ} {⅀ (M ⊕ N)} g
-
--- The effect of the coequalizer is to quotient ⅀ (A ⊕ B)
--- by the smallest congruence generated by the bilinearity laws
-coeq : Coequalizer (CommutativeMonoids c (c ⊔ ℓ)) fₘ gₘ
-coeq = coequalizer f g
-
-open Coequalizer coeq using (obj; arr; coequalize)
-
--- The tensor product
-M⊗N : CommutativeMonoid c (c ⊔ ℓ)
-M⊗N = obj
-
--- Evaluate a formal sum of M×N-terms into the tensor product
-eval : CommutativeMonoidHomomorphism (⅀ (M ⊕ N)) M⊗N
-eval = arr
-
-module _ {X : CommutativeMonoid c (c ⊔ ℓ)} where
+  open Tensor M N
+  open Presented ⅀M⊕N _~_ using () renaming (module Universal to Univ)
 
   -- The eval homomorphism from ⅀M⊕N to the tensor product M⊗N is universal
   -- among bilinear interpretations.
@@ -143,14 +73,6 @@ module _ {X : CommutativeMonoid c (c ⊔ ℓ)} where
 
     infixl 7 _*_
 
-    kfₘ kgₘ : CommutativeMonoidHomomorphism (F Iₛ) X
-    kfₘ = kₘ ∘ fₘ
-    kgₘ = kₘ ∘ gₘ
-
-    kf kg : Iₛ ⟶ₛ U X
-    kf = onGenerators kfₘ
-    kg = onGenerators kgₘ
-
     module Induced
         (≈-εˡ : {y : N.Carrier} → M.ε * y ≈ ε)
         (≈-εʳ : {x : M.Carrier} → x * N.ε ≈ ε)
@@ -158,27 +80,17 @@ module _ {X : CommutativeMonoid c (c ⊔ ℓ)} where
         (≈-∙ʳ : {x : M.Carrier} {y₁ y₂ : N.Carrier} → x * y₁ + x * y₂ ≈ x * (y₁ N.∙ y₂))
       where
 
-      open I
+      open _~_
 
-      kf≈kg : {i : I} → kf ⟨$⟩ i ≈ kg ⟨$⟩ i
-      kf≈kg {εˡ y} = trans ≈-εˡ (sym ε-homo)
-      kf≈kg {εʳ x} = trans ≈-εʳ (sym ε-homo)
-      kf≈kg {∙ˡ x₁ x₂ y} = trans (homo [ x₁ , y ] [ x₂ , y ]) ≈-∙ˡ
-      kf≈kg {∙ʳ x y₁ y₂} = trans (homo [ x , y₁ ] [ x , y₂ ]) ≈-∙ʳ
+      k-resp : {x y : Expr} → x ~ y → ⟦ x ⟧ ≈ ⟦ y ⟧
+      k-resp (εˡ y) = trans ≈-εˡ (sym ε-homo)
+      k-resp (εʳ x) = trans ≈-εʳ (sym ε-homo)
+      k-resp (∙ˡ x₁ x₂ y) = trans (homo [ x₁ , y ] [ x₂ , y ]) ≈-∙ˡ
+      k-resp (∙ʳ x y₁ y₂) = trans (homo [ x , y₁ ] [ x , y₂ ]) ≈-∙ʳ
 
-      kfₘ≈kgₘ : kfₘ CMon.≈ kgₘ
-      kfₘ≈kgₘ = begin
-          kfₘ         ≈⟨ Free⊣Forget.RLadjunct≈id {f = kfₘ} ⟨
-          foldMap kf  ≈⟨ CMon.∘-resp-≈ʳ {f = Free.₁ kf} {Free.₁ kg} {Free⊣Forget.counit.η X} (Free.F-resp-≈ {f = kf} {kg} (λ {x} → kf≈kg {x})) ⟩
-          foldMap kg  ≈⟨ Free⊣Forget.RLadjunct≈id {f = kgₘ} ⟩
-          kgₘ         ∎
-        where
-          open CMon.HomReasoning
+      open Univ kₘ k-resp renaming (induced to u!) public
 
-      u! : CommutativeMonoidHomomorphism M⊗N X
-      u! = coequalize {X} {kₘ} kfₘ≈kgₘ
-
-    open Induced using (u!) public
+    open Induced using (u!; factors; unique) public
 
   -- Given a bilinear function _*_ : U M → U N → U X (with respect to the _+_ and ε on X),
   -- there is a unique monoid homomorphism from M⊗N to X through
@@ -198,10 +110,10 @@ module _ {X : CommutativeMonoid c (c ⊔ ℓ)} where
 
     open Universal kₘ renaming (_*_ to _⊛_)
 
-    ⊛-* : x ⊛ y ≈ x * y
+    ⊛-* : {x : M.Carrier} {y : N.Carrier} → x ⊛ y ≈ x * y
     ⊛-* {x} {y} = identityʳ (x * y)
 
-    *-⊛ : x * y ≈ x ⊛ y
+    *-⊛ : {x : M.Carrier} {y : N.Carrier} → x * y ≈ x ⊛ y
     *-⊛ = sym ⊛-*
 
     module _
@@ -216,5 +128,7 @@ module _ {X : CommutativeMonoid c (c ⊔ ℓ)} where
           (trans ⊛-* ≈-εʳ)
           (trans (∙-cong ⊛-* ⊛-*) (trans ≈-∙ˡ *-⊛))
           (trans (∙-cong ⊛-* ⊛-*) (trans ≈-∙ʳ *-⊛))
-        using (u!)
+        using (u!; factors; unique)
         public
+
+open Tensor renaming (M⊗N to infixr 10 _⊗₀_) public
